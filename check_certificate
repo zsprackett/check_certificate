@@ -109,5 +109,5 @@ if ($days_till_expire <= $warn) {
     exit($STATUSCODE{'WARNING'});
 }
 
-print "$summary\n";
+print "OK: $summary\n";
 exit($STATUSCODE{'OK'});
