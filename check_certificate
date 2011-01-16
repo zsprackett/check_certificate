@@ -91,6 +91,7 @@ if ($x509 =~ /Not After : (... .. ..:..:.. .... ...)\n/) {
 
 if ($date eq "ERROR") {
     print "UNKNOWN: failed to retrieve expiry date from certificate";
+    exit($STATUSCODE{'UNKNOWN'});
 }
 
 my $days_till_expire = floor(($date - time()) / (3600 * 24));
