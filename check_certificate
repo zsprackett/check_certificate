@@ -1,0 +1,112 @@
+#!/usr/bin/perl -w
+#
+# check_certificate.pl - Nagios Plugin
+#
+# Copyright (C) 2011 S. Zachariah Sprackett <zac@sprackett.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+#
+# Report bugs to:
+#
+# S. Zachariah Sprackett <zac@sprackett.com>
+# 
+#
+use strict;
+use Date::Parse;
+use Date::Format;
+use Getopt::Long qw(:config no_ignore_case);
+use POSIX qw(floor);
+
+my ($status, $host, $port, $verbose, $warn, $critical, $VERSION, $HELP);
+
+# Default values
+$VERSION     = 0.1;
+$HELP        = 0;
+$warn        = 90;
+$critical    = 30;
+
+my %STATUSCODE = (  'OK'       => '0',
+                    'WARNING'  => '1',
+                    'CRITICAL' => '2',
+                    'UNKNOWN'  => '3');
+
+my $usage = <<EOF;
+ 
+Copyright (C) 2011 S. Zachariah Sprackett - <zac\@sprackett.com>
+
+Usage: check_certificate -H|--host  -p|--port  <-c|--critical>  <-w|--warn>
+ -H, --host=<ADDRESS>
+   Host or IP address of server
+ -p, --port=<PORT>
+   Port number to connect to
+ -w, --warn=<DAYS>
+   Warning threshold in number of days
+ -c, --critical=<DAYS>
+   Critical threshold in number of days
+
+EOF
+
+my $result = GetOptions( "H|host=s"        => \$host,
+                         "p|port=s"        => \$port,
+                         "c|critical=i"    => \$critical,
+                         "w|warn=i"        => \$warn,
+                         "h|help"          => \$HELP,
+                         );
+
+unless ($result) {
+    print "ERROR: Failed to parse cmdline args\n";
+    print $usage;
+    exit($STATUSCODE{'UNKNOWN'});
+}
+
+if ($HELP) {
+    print $usage;
+    exit($STATUSCODE{'UNKNOWN'});
+}
+
+unless ($host && $port) {
+    print "ERROR: Missing required arguments\n";
+    print $usage;
+    exit($STATUSCODE{'UNKNOWN'});
+}
+
+my $x509 = `echo Q | openssl s_client -connect $host:$port 2>&1 | openssl x509 -noout -text`;
+my $date = "ERROR";
+if ($x509 =~ /Not After : (... .. ..:..:.. .... ...)\n/) {
+    $date = str2time($1);
+}
+
+if ($date eq "ERROR") {
+    print "UNKNOWN: failed to retrieve expiry date from certificate";
+}
+
+my $days_till_expire = floor(($date - time()) / (3600 * 24));
+my $descriptor = $days_till_expire < 0 ? "EXPIRED" : "EXPIRES";
+
+my $summary = time2str("%Y-%m-%d %T", $date) . " - $descriptor $days_till_expire days";
+
+if ($days_till_expire <= $critical) {
+    print "CRITICAL: $summary [critical threshold under $critical]\n";
+    exit($STATUSCODE{'CRITICAL'});
+}
+
+if ($days_till_expire <= $warn) {
+    print "WARNING: $summary [warn threshold under $warn]\n";
+    exit($STATUSCODE{'WARNING'});
+}
+
+print "$summary\n";
+exit($STATUSCODE{'OK'});
