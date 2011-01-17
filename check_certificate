@@ -30,13 +30,14 @@ use Date::Format;
 use Getopt::Long qw(:config no_ignore_case);
 use POSIX qw(floor);
 
-my ($status, $host, $port, $verbose, $warn, $critical, $VERSION, $HELP);
+my ($status, $host, $port, $verbose, $warn, $critical, $timeout, $VERSION, $HELP);
 
 # Default values
-$VERSION     = 0.1;
+$VERSION     = 0.2;
 $HELP        = 0;
 $warn        = 90;
 $critical    = 30;
+$timeout     = 30;
 
 my %STATUSCODE = (  'OK'       => '0',
                     'WARNING'  => '1',
@@ -47,24 +48,28 @@ my $usage = <<EOF;
  
 Copyright (C) 2011 S. Zachariah Sprackett - <zac\@sprackett.com>
 
-Usage: check_certificate -H|--host  -p|--port  <-c|--critical>  <-w|--warn>
+Usage: check_certificate -H|--host  -p|--port  <-c|--critical>  <-w|--warn> <-t|--timeout>
  -H, --host=<ADDRESS>
    Host or IP address of server
  -p, --port=<PORT>
    Port number to connect to
  -w, --warn=<DAYS>
-   Warning threshold in number of days
+   Warning threshold in number of days. Default: $warn
  -c, --critical=<DAYS>
-   Critical threshold in number of days
+   Critical threshold in number of days.  Default: $critical
+ -t, --timeout=<SECONDS>
+   Number of seconds to wait until. Default: $timeout seconds
 
 EOF
 
-my $result = GetOptions( "H|host=s"        => \$host,
-                         "p|port=s"        => \$port,
-                         "c|critical=i"    => \$critical,
-                         "w|warn=i"        => \$warn,
-                         "h|help"          => \$HELP,
-                         );
+my $result = GetOptions( 
+             "H|host=s"        => \$host,
+             "p|port=s"        => \$port,
+             "c|critical=i"    => \$critical,
+             "w|warn=i"        => \$warn,
+             "t|timeout=i"     => \$timeout,
+             "h|help"          => \$HELP,
+             );
 
 unless ($result) {
     print "ERROR: Failed to parse cmdline args\n";
@@ -83,7 +88,14 @@ unless ($host && $port) {
     exit($STATUSCODE{'UNKNOWN'});
 }
 
+$SIG{'ALRM'} = sub {
+    print "UNKNOWN: Timed out waiting for openssl s_client (Timeout $timeout seconds)\n";
+    exit($STATUSCODE{'UNKNOWN'});
+};
+alarm($timeout);
 my $x509 = `echo Q | openssl s_client -connect $host:$port 2>&1 | openssl x509 -noout -text`;
+alarm(0);
+
 my $date = "ERROR";
 if ($x509 =~ /Not After : (... .. ..:..:.. .... ...)\n/) {
     $date = str2time($1);
