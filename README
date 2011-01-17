@@ -1,0 +1,10 @@
+check_certificate 
+  - Copyright (C) 2011, S. Zachariah Sprackett <zac@sprackett.com>
+
+The most complete and up to date information about this script can be found at:
+  - http://github.com/zsprackett/check_certificate/
+
+This document will cover how to install the script.
+
+To install this Nagios monitor, just copy the "check_certificate" file 
+to your Nagios scripts directory.
