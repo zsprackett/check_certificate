@@ -9,7 +9,5 @@ It can be used for any TCP service that uses SSL (including https and ldaps).
 The most complete and up to date information about this script can be found at:
   - http://github.com/zsprackett/check_certificate/
 
-This document will cover how to install the script.
-
 To install this Nagios monitor, just copy the "check_certificate" file 
 to your Nagios scripts directory.
